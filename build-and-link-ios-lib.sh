@@ -2,7 +2,9 @@
 
 cd helloios
 
-cargo lipo --release
+cargo lipo --release --targets aarch64-apple-ios-sim x86_64-apple-ios 
+# aarch64-apple-ios 
+
 cbindgen src/lib.rs -l c > helloios.h
 
 mkdir -p ../ios/include

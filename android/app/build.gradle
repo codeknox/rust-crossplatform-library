@@ -52,7 +52,7 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 cargo {
     module  = "../../helloandroid"
     libname = "helloandroid"
-    targets = ["arm", "x86"]
+    targets = ["arm", "arm64", "x86", "x86_64"]
 }
 
 // Add it as a dependency to one of your other build tasks, to build your rust code when you
