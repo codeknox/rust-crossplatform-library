@@ -1,0 +1,4 @@
+module RustLib {
+    header "helloios.h"
+    export *
+}
