@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# If you are going to edit this scrip[t, please follow the color codes used in yioour echo statements:
+# If you are going to edit this script, please follow the color codes used in your echo statements:
 # 
 # SUCCESS/Green: Success or completion messages.
 # WARNING/Yellow: Warning or process-start messages.
@@ -19,22 +19,23 @@ log() {
     local level=$1
     local message=$2
     local color=""
+    local prefix=""
 
     case $level in
-        SUCCESS) color=$SUCCESS ;;
-        WARNING) color=$WARNING ;;
-        INFO) color=$INFO ;;
-        ERROR) color=$ERROR ;;
-        *) color=$RESET ;;
+        SUCCESS) color=$SUCCESS; prefix="SUCCESS:" ;;
+        WARNING) color=$WARNING; prefix="WARNING:" ;;
+        INFO) color=$INFO; prefix="INFO:" ;;
+        ERROR) color=$ERROR; prefix="ERROR:" ;;
+        *) color=$RESET; prefix="LOG:" ;;
     esac
 
-    echo "${color}${message}${RESET}"
+    echo "${color}${prefix} ${message}${RESET}"
 }
 
 workingdir="$(pwd)"
 
 cleanup() {
-    log SUCCESS "cleaning up..." # Green color for cleanup message
+    log SUCCESS "cleaning up..."
     cd "${workingdir}"
 }
 
@@ -47,20 +48,20 @@ cd helloios
 if [ "$#" -gt 0 ]; then
     # Check if the "-clean" parameter is provided
     if [ "$1" == "-clean" ]; then
-        log WARNING "Cleaning build directories..." # Yellow color for cleaning message
+        log WARNING "Cleaning build directories..."
         if [ -d "target" ]; then
             rm -rf "target"
         fi
     else
-        log ERROR "Unrecognized argument: $1" # Red color for error message
-        log WARNING "Usage: $0 [-clean]" # Yellow color for usage message
+        log ERROR "Unrecognized argument: $1"
+        log WARNING "Usage: $0 [-clean]"
         log WARNING "       -clean: Optional. Cleans the build directories before building."
         exit 1
     fi
 fi
 
 # recreate headers
-log INFO "Recreating headers..." # Blue color for status message
+log INFO "Recreating headers..."
 cbindgen src/lib.rs -l c > include/helloios.h
 
 # Function to build for a specific target with optional nightly parameter
@@ -96,6 +97,59 @@ build_target x86_64-apple-ios-macabi nightly
 # display all build targets
 log INFO "Locating build targets..."
 find target -type f -name 'libhelloios.a'
+
+# copying headers
+log INFO "Copying headers..."
+
+mkdir -p ../ios/include
+cp include/helloios.h ../ios/include
+
+# creating XCFramework bundle
+log INFO "Creating XCFramework bundle..."
+
+# building bundled architecture files
+log INFO "Building bundled architecture files"
+
+lipo -create \
+  target/x86_64-apple-darwin/release/libhelloios.a \
+  target/aarch64-apple-darwin/release/libhelloios.a \
+  -output target/libhelloios_macos.a
+
+lipo -create \
+  target/x86_64-apple-ios/release/libhelloios.a \
+  target/aarch64-apple-ios-sim/release/libhelloios.a \
+  -output target/libhelloios_iossimulator.a
+
+lipo -create \
+  target/x86_64-apple-ios-macabi/release/libhelloios.a \
+  target/aarch64-apple-ios-macabi/release/libhelloios.a \
+  -output target/libhelloios_maccatalyst.a
+
+# listing architectures in each file
+log INFO "Listing architectures in each file..."
+lipo -info target/libhelloios_macos.a
+lipo -info target/libhelloios_iossimulator.a
+lipo -info target/libhelloios_maccatalyst.a
+
+log INFO "Building final XCFramework file..."
+
+rm -rf target/LibHello.xcframework
+xcodebuild -create-xcframework \
+  -library target/libhelloios_macos.a \
+  -headers include/ \
+  -library target/libhelloios_iossimulator.a \
+  -headers include/ \
+  -library target/libhelloios_maccatalyst.a \
+  -headers include/ \
+  -library target/aarch64-apple-ios/release/libhelloios.a \
+  -headers include/ \
+  -output target/LibHello.xcframework
+
+# copying XCFramework
+log INFO "Copying XCFramework..."
+mkdir -p ../ios/libs
+rm -rf ../ios/libs/LibHello.xcframework
+cp -r target/LibHello.xcframework ../ios/libs
 
 # End
 log SUCCESS "Script execution completed successfully."

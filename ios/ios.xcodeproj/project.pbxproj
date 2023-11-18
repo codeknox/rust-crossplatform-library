@@ -13,7 +13,8 @@
 		43B853D8278B207800A2058C /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 43B853D7278B207800A2058C /* Preview Assets.xcassets */; };
 		43B853E3278B207800A2058C /* iosTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B853E2278B207800A2058C /* iosTests.swift */; };
 		43B853EE278B207800A2058C /* iosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B853ED278B207800A2058C /* iosUITests.swift */; };
-		43B85400278B25FA00A2058C /* libhelloios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 43B853FF278B25E300A2058C /* libhelloios.a */; };
+		470AC2C62B083B0500E8E08F /* LibHello.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 470AC2C52B083B0500E8E08F /* LibHello.xcframework */; };
+		470AC2C72B083B0500E8E08F /* LibHello.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 470AC2C52B083B0500E8E08F /* LibHello.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +34,20 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		470AC2C82B083B0500E8E08F /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				470AC2C72B083B0500E8E08F /* LibHello.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		43B853CD278B207600A2058C /* ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ios.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		43B853D0278B207600A2058C /* iosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iosApp.swift; sourceTree = "<group>"; };
@@ -47,6 +62,7 @@
 		43B853ED278B207800A2058C /* iosUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iosUITests.swift; sourceTree = "<group>"; };
 		43B853EF278B207800A2058C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		43B853FF278B25E300A2058C /* libhelloios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libhelloios.a; path = libs/libhelloios.a; sourceTree = "<group>"; };
+		470AC2C52B083B0500E8E08F /* LibHello.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = LibHello.xcframework; path = libs/LibHello.xcframework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,7 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				43B85400278B25FA00A2058C /* libhelloios.a in Frameworks */,
+				470AC2C62B083B0500E8E08F /* LibHello.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -137,6 +153,7 @@
 		43B853FE278B25E300A2058C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				470AC2C52B083B0500E8E08F /* LibHello.xcframework */,
 				43B853FF278B25E300A2058C /* libhelloios.a */,
 			);
 			name = Frameworks;
@@ -152,6 +169,7 @@
 				43B853C9278B207600A2058C /* Sources */,
 				43B853CA278B207600A2058C /* Frameworks */,
 				43B853CB278B207600A2058C /* Resources */,
+				470AC2C82B083B0500E8E08F /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
