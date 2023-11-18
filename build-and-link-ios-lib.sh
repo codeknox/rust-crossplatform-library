@@ -1,9 +1,17 @@
 #!/bin/sh
 
+# If you are going to edit this scrip[t, please follow the color codes used in yioour echo statements:
+# 
+# Green (\033[0;32m): Success or completion messages.
+# Yellow (\033[0;33m): Warning or process-start messages.
+# Blue (\033[0;34m): Information or ongoing process messages.
+# Red (\033[0;31m): Error messages.
+
 workingdir="$(pwd)"
 
 function cleanup() {
-    cd ${workingdir}
+    echo "\033[0;32mcleaning up...\033[0m" # Green color for cleanup message
+    cd "${workingdir}"
 }
 
 trap cleanup EXIT
@@ -15,74 +23,56 @@ cd helloios
 if [ "$#" -gt 0 ]; then
     # Check if the "-clean" parameter is provided
     if [ "$1" == "-clean" ]; then
-        # Delete the "target" folder immediately
+        echo "\033[0;33mCleaning build directories...\033[0m" # Yellow color for cleaning message
         if [ -d "target" ]; then
             rm -rf "target"
         fi
+    else
+        echo "\033[0;31mUnrecognized argument: $1\033[0m" # Red color for error message
+        echo "\033[0;33mUsage: $0 [-clean]\033[0m" # Yellow color for usage message
+        echo "\033[0;33m       -clean: Optional. Cleans the build directories before building.\033[0m"
+        exit 1
     fi
 fi
 
 # recreate headers
+echo "\033[0;34mRecreating headers...\033[0m" # Blue color for status message
 cbindgen src/lib.rs -l c > include/helloios.h
 
+# Function to build for a specific target with optional nightly parameter
+build_target() {
+    target="$1"
+    use_nightly="${2:-}"
+
+    echo "\033[0;34mBuilding for target $target...\033[0m"
+
+    if [ "$use_nightly" = "nightly" ]; then
+        build_command="cargo +nightly build --release -Z build-std --target $target"
+    else
+        build_command="cargo build --release --target $target"
+    fi
+
+    if ! $build_command; then
+        echo "\033[0;31mBuild failed for target $target\033[0m"
+        exit 1
+    fi
+}
 
 # Building possible architectures
+build_target aarch64-apple-ios
+build_target aarch64-apple-ios-sim
+build_target aarch64-apple-darwin
+build_target x86_64-apple-ios
+build_target x86_64-apple-darwin
 
-# arm
-cargo build --release --target aarch64-apple-ios
-cargo build --release --target aarch64-apple-ios-sim
-cargo build --release --target aarch64-apple-darwin
-cargo +nightly build --release -Z build-std --target aarch64-apple-ios-macabi
+# Nightly builds
+build_target aarch64-apple-ios-macabi nightly
+build_target x86_64-apple-ios-macabi nightly
 
-# x86
-cargo build --release --target x86_64-apple-ios
-cargo build --release --target x86_64-apple-darwin
-cargo +nightly build --release -Z build-std --target x86_64-apple-ios-macabi
-
-# find all build targets
+# display all build targets
+echo "\033[0;34mLocating build targets...\033[0m"
 find target -type f -name 'libhelloios.a'
 
-# build XCFrameworks
-lipo -create \
-  target/x86_64-apple-darwin/release/libhelloios.a \
-  target/aarch64-apple-darwin/release/libhelloios.a \
-  -output target/libhelloios_macos.a
-
-lipo -create \
-  target/x86_64-apple-ios/release/libhelloios.a \
-  target/aarch64-apple-ios-sim/release/libhelloios.a \
-  -output target/libhelloios_iossimulator.a
-
-lipo -create \
-  target/x86_64-apple-ios-macabi/release/libhelloios.a \
-  target/aarch64-apple-ios-macabi/release/libhelloios.a \
-  -output target/libhelloios_maccatalyst.a
-
-# list architectures in each file
-lipo -info target/libhelloios_macos.a
-lipo -info target/libhelloios_iossimulator.a
-lipo -info target/libhelloios_maccatalyst.a
-
-echo "creating XCFramework..."
-
-# create XCFramework bundle
-rm -rf target/LibHello.xcframework
-xcodebuild -create-xcframework \
-  -library target/libhelloios_macos.a \
-  -headers include/ \
-  -library target/libhelloios_iossimulator.a \
-  -headers include/ \
-  -library target/libhelloios_maccatalyst.a \
-  -headers include/ \
-  -library target/aarch64-apple-ios/release/libhelloios.a \
-  -headers include/ \
-  -output target/LibHello.xcframework
-
-mkdir -p ../ios/include
-cp include/helloios.h ../ios/include
-
-mkdir -p ../ios/libs
-rm -rf ../ios/libs/LibHello.xcframework
-cp -r target/LibHello.xcframework ../ios/libs
-
+# End
+echo "\033[0;32mScript execution completed successfully.\033[0m"
 exit 0
