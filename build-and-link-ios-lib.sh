@@ -2,15 +2,39 @@
 
 # If you are going to edit this scrip[t, please follow the color codes used in yioour echo statements:
 # 
-# Green (\033[0;32m): Success or completion messages.
-# Yellow (\033[0;33m): Warning or process-start messages.
-# Blue (\033[0;34m): Information or ongoing process messages.
-# Red (\033[0;31m): Error messages.
+# SUCCESS/Green: Success or completion messages.
+# WARNING/Yellow: Warning or process-start messages.
+# INFO/Blue: Information or ongoing process messages.
+# ERROR/Red: Error messages.
+
+# Define color codes
+readonly SUCCESS="\033[0;32m"
+readonly WARNING="\033[0;33m"
+readonly INFO="\033[0;34m"
+readonly ERROR="\033[0;31m"
+readonly RESET="\033[0m" # Resets color to default
+
+# Logging function
+log() {
+    local level=$1
+    local message=$2
+    local color=""
+
+    case $level in
+        SUCCESS) color=$SUCCESS ;;
+        WARNING) color=$WARNING ;;
+        INFO) color=$INFO ;;
+        ERROR) color=$ERROR ;;
+        *) color=$RESET ;;
+    esac
+
+    echo "${color}${message}${RESET}"
+}
 
 workingdir="$(pwd)"
 
-function cleanup() {
-    echo "\033[0;32mcleaning up...\033[0m" # Green color for cleanup message
+cleanup() {
+    log SUCCESS "cleaning up..." # Green color for cleanup message
     cd "${workingdir}"
 }
 
@@ -23,20 +47,20 @@ cd helloios
 if [ "$#" -gt 0 ]; then
     # Check if the "-clean" parameter is provided
     if [ "$1" == "-clean" ]; then
-        echo "\033[0;33mCleaning build directories...\033[0m" # Yellow color for cleaning message
+        log WARNING "Cleaning build directories..." # Yellow color for cleaning message
         if [ -d "target" ]; then
             rm -rf "target"
         fi
     else
-        echo "\033[0;31mUnrecognized argument: $1\033[0m" # Red color for error message
-        echo "\033[0;33mUsage: $0 [-clean]\033[0m" # Yellow color for usage message
-        echo "\033[0;33m       -clean: Optional. Cleans the build directories before building.\033[0m"
+        log ERROR "Unrecognized argument: $1" # Red color for error message
+        log WARNING "Usage: $0 [-clean]" # Yellow color for usage message
+        log WARNING "       -clean: Optional. Cleans the build directories before building."
         exit 1
     fi
 fi
 
 # recreate headers
-echo "\033[0;34mRecreating headers...\033[0m" # Blue color for status message
+log INFO "Recreating headers..." # Blue color for status message
 cbindgen src/lib.rs -l c > include/helloios.h
 
 # Function to build for a specific target with optional nightly parameter
@@ -44,7 +68,7 @@ build_target() {
     target="$1"
     use_nightly="${2:-}"
 
-    echo "\033[0;34mBuilding for target $target...\033[0m"
+    log INFO "Building for target $target..."
 
     if [ "$use_nightly" = "nightly" ]; then
         build_command="cargo +nightly build --release -Z build-std --target $target"
@@ -53,7 +77,7 @@ build_target() {
     fi
 
     if ! $build_command; then
-        echo "\033[0;31mBuild failed for target $target\033[0m"
+        log ERROR "Build failed for target $target"
         exit 1
     fi
 }
@@ -70,9 +94,9 @@ build_target aarch64-apple-ios-macabi nightly
 build_target x86_64-apple-ios-macabi nightly
 
 # display all build targets
-echo "\033[0;34mLocating build targets...\033[0m"
+log INFO "Locating build targets..."
 find target -type f -name 'libhelloios.a'
 
 # End
-echo "\033[0;32mScript execution completed successfully.\033[0m"
+log SUCCESS "Script execution completed successfully."
 exit 0
