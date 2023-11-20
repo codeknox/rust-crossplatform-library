@@ -33,7 +33,7 @@ pub unsafe extern "C" fn say_hello(to: *const c_char) -> *mut c_char {
     CString::new(str).unwrap().into_raw()
 }
 
-/// Gets a personalized greeting from Rust.
+/// Frees a string that was sent to platform library.
 ///
 /// # Safety
 /// This function is unsafe because it dereferences a raw pointer. The caller
@@ -46,4 +46,24 @@ pub unsafe extern "C" fn free_string(str: *mut c_char) {
         return;
     }
     let _ = CString::from_raw(str);
+}
+
+#[repr(C)]
+pub struct ImageData {
+    data: *const u8,
+    length: usize,
+}
+
+#[no_mangle]
+pub extern "C" fn fetch_random_image() -> ImageData {
+    match greetings::fetch_random_image() {
+        Ok(bytes) => {
+            let length = bytes.len();
+            let boxed_slice = bytes.into_boxed_slice();
+            let raw_ptr = boxed_slice.as_ptr();
+            std::mem::forget(boxed_slice);
+            ImageData { data: raw_ptr, length }
+        },
+        Err(_) => ImageData { data: std::ptr::null(), length: 0 },
+    }
 }

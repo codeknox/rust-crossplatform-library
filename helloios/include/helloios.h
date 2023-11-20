@@ -3,6 +3,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+typedef struct ImageData {
+  const uint8_t *data;
+  uintptr_t length;
+} ImageData;
+
 char *get_greetings(void);
 
 /**
@@ -17,7 +22,7 @@ char *get_greetings(void);
 char *say_hello(const char *to);
 
 /**
- * Gets a personalized greeting from Rust.
+ * Frees a string that was sent to platform library.
  *
  * # Safety
  * This function is unsafe because it dereferences a raw pointer. The caller
@@ -26,3 +31,5 @@ char *say_hello(const char *to);
  * can lead to undefined behavior.
  */
 void free_string(char *str);
+
+struct ImageData fetch_random_image(void);

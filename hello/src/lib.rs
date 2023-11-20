@@ -20,4 +20,14 @@ pub mod greetings {
         let mut count = COUNTER2.lock().unwrap();
         *count += 1;
         format!("Hello, {}!\n{}x", recipient, count.to_formatted_string(&Locale::en))
-    }}
+    }
+    
+    // Function to fetch a random image and return its bytes
+    pub fn fetch_random_image() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let url = "https://picsum.photos/200/300";
+        let res = reqwest::blocking::get(url)?;
+        let bytes = res.bytes()?.to_vec();
+    
+        Ok(bytes)
+    }
+}
