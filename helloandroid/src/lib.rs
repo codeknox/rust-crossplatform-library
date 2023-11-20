@@ -13,7 +13,7 @@ pub type Callback = unsafe extern "C" fn(*const c_char) -> ();
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn invokeCallbackViaJNA(callback: Callback) {
-    let s = CString::new(hello::greetings_from_rust()).unwrap();
+    let s = CString::new(hello::say_hello()).unwrap();
     unsafe { callback(s.as_ptr()); }
 }
 
@@ -24,7 +24,7 @@ pub extern "C" fn Java_com_rc_rustspike_myapplication_MainActivity_invokeCallbac
     _class: JClass,
     callback: JObject
 ) {
-    let s = String::from(hello::greetings_from_rust());
+    let s = String::from(hello::say_hello());
     let response = env.new_string(&s)
         .expect("Couldn't create java string!");
     env.call_method(callback, "callback", "(Ljava/lang/String;)V",

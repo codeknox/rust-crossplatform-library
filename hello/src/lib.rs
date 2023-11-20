@@ -1,25 +1,23 @@
-use lazy_static::lazy_static;
-use std::sync::Mutex;
+// hello/src/lib.rs
 
-lazy_static! {
-    static ref COUNTER1: Mutex<u32> = Mutex::new(0);
-    static ref COUNTER2: Mutex<u32> = Mutex::new(0);
-}
-
-pub mod hello {
-    use super::COUNTER1;
-    use super::COUNTER2;
-    use std::sync::MutexGuard;
-
-    pub fn greetings_from_rust() -> String {
-        let mut count: MutexGuard<u32> = COUNTER1.lock().unwrap();
-        *count += 1;
-        format!("1> From Rust! This function has been called {} times.", *count)
+pub mod greetings {
+    use lazy_static::lazy_static;
+    use std::sync::Mutex;
+    use num_format::{Locale, ToFormattedString};
+    
+    lazy_static! {
+        static ref COUNTER1: Mutex<u32> = Mutex::new(0);
+        static ref COUNTER2: Mutex<u32> = Mutex::new(0);
     }
 
-    pub fn another_greetings_from_rust() -> String {
-        let mut count: MutexGuard<u32> = COUNTER2.lock().unwrap();
+    pub fn get_greetings() -> String {
+        let mut count = COUNTER1.lock().unwrap();
         *count += 1;
-        format!("2> From Rust! This function has been called {} times.", *count)
+        format!("Hello from Rust!\n{}x", count.to_formatted_string(&Locale::en))
     }
-}
+
+    pub fn say_hello(recipient: &str) -> String {
+        let mut count = COUNTER2.lock().unwrap();
+        *count += 1;
+        format!("Hello, {}!\n{}x", recipient, count.to_formatted_string(&Locale::en))
+    }}

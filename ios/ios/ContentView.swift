@@ -9,7 +9,7 @@ import SwiftUI
 import RustLib
 
 struct ContentView: View {
-    @State private var text1 = "Tap to start calling\n(it will call into rust 2x * 1,000,000)"
+    @State private var text1 = "Tap to start calling\n(it will call into rust 2x * 50,000,000)"
     @State private var text2 = ""
     @State private var tapCount = 0  // Add a state property for the tap count
     
@@ -17,7 +17,7 @@ struct ContentView: View {
         VStack {
             Text(text1).padding()
             Text(text2).padding()
-            Text("Tap Count: \(tapCount)") // Display the tap count
+            Text("Call Count: \(tapCount)") // Display the tap count
         }
         .onTapGesture {
             handleOnTap()
@@ -26,6 +26,7 @@ struct ContentView: View {
     
     func handleOnTap() {
 
+        // Execute the Rust calls in the background
         DispatchQueue.global(qos: .userInitiated).async {
             for i in 1...50_000_000 {
                 if i % 373_033 == 0 || i == 50_000_000 {
@@ -33,25 +34,24 @@ struct ContentView: View {
                         self.tapCount = i  // Increment the tap count
                     }
                 }
-                // Execute the Rust calls in the background
-                var result = rust_hello("")
+                
+                var result = get_greetings()
                 let swift_result1 = String(cString: result!)
                 if i % 373_033 == 0 || i == 50_000_000 {
                     DispatchQueue.main.async {
                         self.text1 = swift_result1
                     }
                 }
-                rust_hello_free(UnsafeMutablePointer(mutating: result))
+                free_string(UnsafeMutablePointer(mutating: result))
 
-                result = rust_hello2("")
+                result = say_hello("Sergio")
                 let swift_result2 = String(cString: result!)
                 if i % 373_033 == 0 || i == 50_000_000 {
                     DispatchQueue.main.async {
                         self.text2 = swift_result2
                     }
-//                    Thread.sleep(forTimeInterval: 0.0000000001)
                 }
-                rust_hello_free(UnsafeMutablePointer(mutating: result))
+                free_string(UnsafeMutablePointer(mutating: result))
             }
         }
     }
