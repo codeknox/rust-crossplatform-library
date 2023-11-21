@@ -8,6 +8,8 @@ typedef struct ImageData {
   uintptr_t length;
 } ImageData;
 
+typedef void (*ImageFetchCallback)(const uint8_t*, uintptr_t);
+
 char *get_greetings(void);
 
 /**
@@ -33,3 +35,5 @@ char *say_hello(const char *to);
 void free_string(char *str);
 
 struct ImageData fetch_random_image(void);
+
+void fetch_random_image_async(ImageFetchCallback callback);

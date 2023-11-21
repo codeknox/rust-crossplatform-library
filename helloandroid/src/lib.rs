@@ -1,19 +1,19 @@
 extern crate jni;
 
-use std::os::raw::{c_char};
-use std::ffi::{CString};
+use std::os::raw::c_char;
+use std::ffi::CString;
 
 use jni::JNIEnv;
 use jni::objects::{JClass, JObject, JValue};
 
-use hello::hello;
+use hello::greetings;
 
 pub type Callback = unsafe extern "C" fn(*const c_char) -> ();
 
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn invokeCallbackViaJNA(callback: Callback) {
-    let s = CString::new(hello::say_hello()).unwrap();
+    let s = CString::new(greetings::get_greetings()).unwrap();
     unsafe { callback(s.as_ptr()); }
 }
 
@@ -24,7 +24,7 @@ pub extern "C" fn Java_com_rc_rustspike_myapplication_MainActivity_invokeCallbac
     _class: JClass,
     callback: JObject
 ) {
-    let s = String::from(hello::say_hello());
+    let s = greetings::say_hello("");
     let response = env.new_string(&s)
         .expect("Couldn't create java string!");
     env.call_method(callback, "callback", "(Ljava/lang/String;)V",

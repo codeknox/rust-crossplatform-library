@@ -8,81 +8,157 @@
 import RustLib
 import SwiftUI
 
-struct ContentView: View {
-    @State private var text1 = "Tap to start calling\n(it will call into rust 2x * 50,000,000)"
-    @State private var text2 = ""
-    @State private var tapCount = 0  // Add a state property for the tap count
-    @State private var rustImage: UIImage? = nil
-    @State private var isLoading = false   // State to track loading status
+// Global function for posting notification
+func postImageFetchNotification(dataPtr: UnsafePointer<UInt8>?, length: UInt) {
+  print("Swift: Posting Image Fetch Notification \(length)")
+  guard let dataPtr = dataPtr else {
+    print("Swift: postImageFetchNotification: invalid data, posting")
+    DispatchQueue.main.async {
+      NotificationCenter.default.post(
+        name: .ImageFetchCompleted, object: nil, userInfo: ["data": Data()])
+      print("Swift: postImageFetchNotification: invalid data, posted, returning")
+    }
+    return
+  }
 
+  print("Swift: postImageFetchNotification: data is valid")
+  let data = Data(bytes: dataPtr, count: Int(length))
+  NotificationCenter.default.post(
+    name: .ImageFetchCompleted, object: nil, userInfo: ["data": data])
+}
+
+struct ContentView: View {
+  @State private var text1 = "Tap to start calling\n(it will call into rust 2x * 50,000,000)"
+  @State private var text2 = ""
+  @State private var tapCount = 0  // Add a state property for the tap count
+  @State private var rustImage = UIImage(named: "rust-mascot")
+  @State private var isLoading = false  // State to track loading status
+
+  private var imageFetcher = ImageFetcher()
+
+  init() {
+    NotificationCenter.default.addObserver(
+      forName: .ImageFetchCompleted,
+      object: nil,
+      queue: .main
+    ) { [self] notification in
+      self.handleImageFetchCompletion(notification)
+    }
+  }
+
+  var body: some View {
+    VStack {
+      Text(text1).padding()
+        .onTapGesture {
+          handleOnTap()
+        }
+      Text(text2).padding()
+      Text("Call Count: \(tapCount)").padding()
+      Button("Fetch Image from Rust") {
+        fetchImageFromRust()
+      }.padding()
+
+      ZStack {
+        Image(uiImage: rustImage!)
+          .resizable()
+          .scaledToFit()
+        if isLoading {
+          TranslucentSpinner()
+        }
+      }
+    }
+  }
+
+  struct TranslucentSpinner: View {
     var body: some View {
-        VStack {
-            Text(text1).padding()
-                .onTapGesture {
-                    handleOnTap()
-                }
-            Text(text2).padding()
-            Text("Call Count: \(tapCount)").padding()
-            
-            if let image = rustImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 200, height: 200).padding()
-            }
-            Button("Fetch Image from Rust") {
-                fetchImageFromRust()
-            }.padding()
-        }
+      ZStack {
+        // Translucent background
+        Color.black.opacity(0.35)
+          .frame(width: 150, height: 150)
+          .cornerRadius(10)
+
+        // Spinner
+        ProgressView()
+          .scaleEffect(2)
+      }
     }
-    
-    func handleOnTap() {
-        
-        // Execute the Rust calls in the background
-        DispatchQueue.global(qos: .userInitiated).async {
-            for i in 1...50_000_000 {
-                if i % 373_033 == 0 || i == 50_000_000 {
-                    DispatchQueue.main.async {
-                        self.tapCount = i  // Increment the tap count
-                    }
-                }
-                
-                var result = get_greetings()
-                let swift_result1 = String(cString: result!)
-                if i % 373_033 == 0 || i == 50_000_000 {
-                    DispatchQueue.main.async {
-                        self.text1 = swift_result1
-                    }
-                }
-                free_string(UnsafeMutablePointer(mutating: result))
-                
-                result = say_hello("Sergio")
-                let swift_result2 = String(cString: result!)
-                if i % 373_033 == 0 || i == 50_000_000 {
-                    DispatchQueue.main.async {
-                        self.text2 = swift_result2
-                    }
-                }
-                free_string(UnsafeMutablePointer(mutating: result))
-            }
+  }
+
+  func handleOnTap() {
+
+    // Execute the Rust calls in the background
+    DispatchQueue.global(qos: .userInitiated).async {
+      for i in 1...50_000_000 {
+        if i % 373_033 == 0 || i == 50_000_000 {
+          DispatchQueue.main.async {
+            self.tapCount = i  // Increment the tap count
+          }
         }
-    }
-    
-    func fetchImageFromRust() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let imageData = fetch_random_image()
-            guard let rawPtr = imageData.data, imageData.length > 0 else { return }
-            
-            let data = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: rawPtr),
-                            count: Int(imageData.length),
-                            deallocator: .free)
-            if let image = UIImage(data: data) {
-                DispatchQueue.main.async {
-                    self.rustImage = image
-                }
-            }
+
+        var result = get_greetings()
+        let swift_result1 = String(cString: result!)
+        if i % 373_033 == 0 || i == 50_000_000 {
+          DispatchQueue.main.async {
+            self.text1 = swift_result1
+          }
         }
+        free_string(UnsafeMutablePointer(mutating: result))
+
+        result = say_hello("Sergio")
+        let swift_result2 = String(cString: result!)
+        if i % 373_033 == 0 || i == 50_000_000 {
+          DispatchQueue.main.async {
+            self.text2 = swift_result2
+          }
+        }
+        free_string(UnsafeMutablePointer(mutating: result))
+      }
     }
+  }
+
+  func fetchImageFromRust() {
+    isLoading = true
+    print("Swift: Fetching image from Rust...")
+    fetch_random_image_async(postImageFetchNotification)
+  }
+
+  private func handleImageFetchCompletion(_ notification: Notification) {
+    print("Swift: Handling image fetch completion")
+    if let data = notification.userInfo?["data"] as? Data {
+      print("Swift: Data received with length: \(data.count)")
+      if let image = UIImage(data: data) {
+          self.rustImage = image
+      } else {
+        print("Swift: Unable to create image from data")
+          self.rustImage = UIImage(named: "rust-error")
+      }
+    } else {
+      print("Swift: No data received in notification")
+        self.rustImage = UIImage(named: "rust-error")
+    }
+      self.isLoading = false
+  }
+}
+
+extension Notification.Name {
+  static let ImageFetchCompleted = Notification.Name("ImageFetchCompleted")
+}
+
+class ImageFetcher {
+  var onImageFetched: ((Data?) -> Void)?
+
+  init() {
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(imageFetchCompleted), name: .ImageFetchCompleted, object: nil)
+  }
+
+  @objc func imageFetchCompleted(_ notification: Notification) {
+    if let data = notification.userInfo?["data"] as? Data {
+      onImageFetched?(data)
+    } else {
+      onImageFetched?(nil)
+    }
+  }
 }
 
 struct ContentView_Previews: PreviewProvider {
