@@ -41,7 +41,9 @@ pub mod greetings {
     where
         F: FnOnce(Result<Vec<u8>, String>) + Send + 'static,
     {
+        println!("Rust: started fetch_random_image_async...");
         let rt = tokio::runtime::Runtime::new().unwrap();
+        println!("Rust: fetch_random_image_async: willl spawn...");
         rt.spawn(async move {
             println!("Rust: Starting image fetch...");
     
