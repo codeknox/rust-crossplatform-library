@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# file name: ./build-and-link-ios-lib.sh
+
 # If you are going to edit this script, please follow the color codes used in your echo statements:
 # 
 # SUCCESS/Green: Success or completion messages.
@@ -91,8 +93,9 @@ build_target x86_64-apple-ios
 build_target x86_64-apple-darwin
 
 # Nightly builds
-build_target aarch64-apple-ios-macabi nightly
-build_target x86_64-apple-ios-macabi nightly
+# sometimes, nightly fails, update local with: rustup update nightly
+# build_target aarch64-apple-ios-macabi nightly
+# build_target x86_64-apple-ios-macabi nightly
 
 # display all build targets
 log INFO "Locating build targets..."
@@ -120,16 +123,16 @@ lipo -create \
   target/aarch64-apple-ios-sim/release/libhelloios.a \
   -output target/libhelloios_iossimulator.a
 
-lipo -create \
-  target/x86_64-apple-ios-macabi/release/libhelloios.a \
-  target/aarch64-apple-ios-macabi/release/libhelloios.a \
-  -output target/libhelloios_maccatalyst.a
+# lipo -create \
+#   target/x86_64-apple-ios-macabi/release/libhelloios.a \
+#   target/aarch64-apple-ios-macabi/release/libhelloios.a \
+#   -output target/libhelloios_maccatalyst.a
 
 # listing architectures in each file
 log INFO "Listing architectures in each file..."
 lipo -info target/libhelloios_macos.a
 lipo -info target/libhelloios_iossimulator.a
-lipo -info target/libhelloios_maccatalyst.a
+# lipo -info target/libhelloios_maccatalyst.a
 
 log INFO "Building final XCFramework file..."
 
@@ -139,11 +142,12 @@ xcodebuild -create-xcframework \
   -headers include/ \
   -library target/libhelloios_iossimulator.a \
   -headers include/ \
-  -library target/libhelloios_maccatalyst.a \
-  -headers include/ \
   -library target/aarch64-apple-ios/release/libhelloios.a \
   -headers include/ \
   -output target/LibHello.xcframework
+
+#   -library target/libhelloios_maccatalyst.a \
+#   -headers include/ \
 
 # copying XCFramework
 log INFO "Copying XCFramework..."

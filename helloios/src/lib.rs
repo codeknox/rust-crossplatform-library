@@ -79,16 +79,18 @@ type ImageFetchCallback = extern "C" fn(*const u8, usize);
 
 #[no_mangle]
 pub extern "C" fn fetch_random_image_async(callback: ImageFetchCallback) {
+    println!("Rust: calling fetch_random_image_async...");
     greetings::fetch_random_image_async(move |result| match result {
         Ok(bytes) => {
             println!("Rust: fetch_random_image_async got OK...");
             let ptr = bytes.as_ptr();
             let len = bytes.len();
+            println!("Rust: fetch_random_image_async received image with length {}", len);
             std::mem::forget(bytes); // Prevent Rust from freeing the memory
             callback(ptr, len); // Pass data to the callback
         }
-        Err(_) => {
-            println!("Rust: fetch_random_image_async got Err...");
+        Err(err) => {
+            println!("Rust: fetch_random_image_async got Err: {}", err);
             callback(std::ptr::null(), 0)
         }, // Pass null/zero to sign an error
     });
