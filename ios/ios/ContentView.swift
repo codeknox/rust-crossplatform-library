@@ -10,41 +10,39 @@ import SwiftUI
 
 // Global function for posting notification
 func postImageFetchNotification(dataPtr: UnsafePointer<UInt8>?, length: UInt) {
-    print("Swift: Posting Image Fetch Notification \(length)")
-    guard let dataPtr = dataPtr else {
-        print("Swift: postImageFetchNotification: invalid data, posting")
-//        DispatchQueue.main.async {
-            NotificationCenter.default.post(
-                name: .ImageFetchCompleted, object: nil, userInfo: ["data": Data()])
-            print("Swift: postImageFetchNotification: invalid data, posted, returning")
-//        }
-        return
-    }
-    
-    print("Swift: postImageFetchNotification: data is valid")
-    let data = Data(bytes: dataPtr, count: Int(length))
+  print("Swift: Posting Image Fetch Notification \(length)")
+  guard let dataPtr = dataPtr else {
+    print("Swift: postImageFetchNotification: invalid data, posting")
     NotificationCenter.default.post(
-        name: .ImageFetchCompleted, object: nil, userInfo: ["data": data])
+      name: .ImageFetchCompleted, object: nil, userInfo: ["data": Data()])
+    print("Swift: postImageFetchNotification: invalid data, posted, returning")
+    return
+  }
+
+  print("Swift: postImageFetchNotification: data is valid")
+  let data = Data(bytes: dataPtr, count: Int(length))
+  NotificationCenter.default.post(
+    name: .ImageFetchCompleted, object: nil, userInfo: ["data": data])
 }
 
 struct ContentView: View {
     @State private var text1 = "Tap to start calling\n(it will call into rust 2x * 50,000,000)"
     @State private var text2 = ""
     @State private var tapCount = 0  // Add a state property for the tap count
+    @State private var errorCount = 0
     @State private var rustImage = UIImage(named: "rust-mascot")
     @State private var isLoading = false  // State to track loading status
     
     var body: some View {
         VStack {
-            Text("Loading: \(isLoading ? "True" : "False")")
-            
             Text(text1).padding()
                 .onTapGesture {
                     handleOnTap()
                 }
             Text(text2).padding()
-            Text("Call Count: \(tapCount)").padding()
-            Button("Fetch Image from Rust") {
+            Text("Call Count: \(tapCount)").padding(1)
+            Text("Error Count: \(errorCount)").padding(1)
+            Button("Start Fetch Image from Rust") {
                 fetchImageFromRust()
             }.padding()
             
@@ -57,15 +55,15 @@ struct ContentView: View {
                 }
             }
         }
-        .onReceive([self.isLoading].publisher.first(), perform: { value in
-            print("isLoading changed to \(value)")
-        })
-         .onAppear {
+        // .onReceive([self.isLoading].publisher.first(), perform: { value in
+        //     print("isLoading changed to \(value)")
+        // })
+        .onAppear {
             setUpNotificationObserver()
         }
         
     }
-
+    
     private func setUpNotificationObserver() {
         NotificationCenter.default.addObserver(
             forName: .ImageFetchCompleted,
@@ -137,32 +135,59 @@ struct ContentView: View {
                 print("Swift: Image created successfully")
                 self.rustImage = image
                 self.isLoading = false
-            } else
-            {
+                self.tapCount += 1
+            } else {
                 print("Swift: Unable to create image from data")
                 self.rustImage = UIImage(named: "rust-error")
                 self.isLoading = false
+                self.errorCount += 1
             }
         } else {
             print("Swift: No data received in notification")
             self.rustImage = UIImage(named: "rust-error")
             self.isLoading = false
         }
+        DispatchQueue.background(
+            background: {
+                fetchImageFromRust()
+            },
+            completion: {
+                // when background job finishes, wait 3 seconds and do something in main thread
+            })
     }
 }
 
 extension Notification.Name {
-    static let ImageFetchCompleted = Notification.Name("ImageFetchCompleted")
+  static let ImageFetchCompleted = Notification.Name("ImageFetchCompleted")
+}
+
+extension DispatchQueue {
+
+  static func background(
+    delay: Double = 0.0, background: (() -> Void)? = nil, completion: (() -> Void)? = nil
+  ) {
+    DispatchQueue.global(qos: .background).async {
+      background?()
+      if let completion = completion {
+        DispatchQueue.main.asyncAfter(
+          deadline: .now() + delay,
+          execute: {
+            completion()
+          })
+      }
+    }
+  }
+
 }
 
 //class ImageFetcher {
 //    var onImageFetched: ((Data?) -> Void)?
-//    
+//
 //    init() {
 //        NotificationCenter.default.addObserver(
 //            self, selector: #selector(imageFetchCompleted), name: .ImageFetchCompleted, object: nil)
 //    }
-//    
+//
 //@objc func imageFetchCompleted(_ notification: Notification) {
 //    DispatchQueue.main.async {
 //        if let data = notification.userInfo?["data"] as? Data {
@@ -175,7 +200,7 @@ extension Notification.Name {
 //}
 
 struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
+  static var previews: some View {
+    ContentView()
+  }
 }
