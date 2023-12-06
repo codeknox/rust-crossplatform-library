@@ -7,6 +7,77 @@
 
 import RustLib
 import SwiftUI
+import Foundation
+import UIKit
+
+class FolderMonitor: NSObject, NSFilePresenter {
+    var folderURL: URL
+    var presentedItemOperationQueue: OperationQueue
+
+    var onNewImageDetected: ((UIImage) -> Void)?
+    
+    init(folder: String, onNewImageDetected: @escaping (UIImage) -> Void) {
+        self.folderURL = FolderMonitor.createFolder(folder)
+        self.onNewImageDetected = onNewImageDetected
+        self.presentedItemOperationQueue = OperationQueue.main
+        super.init()
+        NSFileCoordinator.addFilePresenter(self)
+    }
+
+    var presentedItemURL: URL? {
+        return folderURL
+    }
+    
+    func presentedItemDidChange() {
+        do {
+            let fileURLs = try FileManager.default.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles)
+            
+            // Filter for image files, if required. This can be adjusted based on your specific needs
+            let imageFiles = fileURLs.filter { $0.pathExtension == "png" || $0.pathExtension == "jpg" || $0.pathExtension == "jpeg" }
+            
+            // Sort the files by modification date, latest first
+            let sortedFiles = imageFiles.sorted {
+                let date0 = try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+                let date1 = try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+                return date0 ?? Date.distantPast > date1 ?? Date.distantPast
+            }
+            
+            // Process only the latest file
+            if let latestFileURL = sortedFiles.first, isNewImage(latestFileURL) {
+                if let image = UIImage(contentsOfFile: latestFileURL.path) {
+                    onNewImageDetected?(image)
+                }
+            }
+            for fileURL in sortedFiles.dropFirst() {
+                try FileManager.default.removeItem(at: fileURL)
+            }
+        } catch {
+            print("Error reading directory contents: \(error)")
+        }
+    }
+
+    private func isNewImage(_ fileURL: URL) -> Bool {
+        // Implement logic to determine if the file is a new image
+        return true
+    }
+    
+    // Call this function to stop monitoring
+    func stopMonitoring() {
+        NSFileCoordinator.removeFilePresenter(self)
+    }
+    
+    static func createFolder(_ folder: String) -> URL {
+        let paths = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)
+        let documentsDirectory = paths[0]
+        let docURL = URL(fileURLWithPath: documentsDirectory)
+        let dataPath = docURL.appendingPathComponent(folder)
+        if !FileManager.default.fileExists(atPath: dataPath.path) {
+            try! FileManager.default.createDirectory(atPath: dataPath.path, withIntermediateDirectories: true, attributes: nil)
+        }
+        print("data folder: \(dataPath)")
+        return dataPath
+    }
+}
 
 // Global function for posting notification
 func postImageFetchNotification(dataPtr: UnsafePointer<UInt8>?, length: UInt) {
@@ -25,6 +96,20 @@ func postImageFetchNotification(dataPtr: UnsafePointer<UInt8>?, length: UInt) {
     name: .ImageFetchCompleted, object: nil, userInfo: ["data": data])
 }
 
+class ImageFolderMonitor: ObservableObject {
+   @Published var image: UIImage?
+   public var folderMonitor: FolderMonitor?
+
+   init(folder: String) {
+      folderMonitor = FolderMonitor(folder: folder) { [weak self] newImage in
+         DispatchQueue.main.async {
+            self?.image = newImage
+         }
+      }
+   }
+}
+
+
 struct ContentView: View {
     @State private var text1 = "Tap to start calling\n(it will call into rust 2x * 50,000,000)"
     @State private var text2 = ""
@@ -32,7 +117,8 @@ struct ContentView: View {
     @State private var errorCount = 0
     @State private var rustImage = UIImage(named: "rust-mascot")
     @State private var isLoading = false  // State to track loading status
-    
+    @StateObject private var imageFolderMonitor = ImageFolderMonitor(folder: "images")
+
     var body: some View {
         VStack {
             Text(text1).padding()
@@ -43,26 +129,46 @@ struct ContentView: View {
             Text("Call Count: \(tapCount)").padding(1)
             Text("Error Count: \(errorCount)").padding(1)
             Button("Start Fetch Image from Rust") {
-                fetchImageFromRust()
+//                fetchImageFromRust()
+                saveImageToFolder()
             }.padding()
             
             ZStack {
-                Image(uiImage: rustImage!)
-                    .resizable()
-                    .scaledToFit()
+                if let image = imageFolderMonitor.image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                }
                 if isLoading {
                     TranslucentSpinner()
                 }
             }
         }
+        .onChange(of: imageFolderMonitor.image) { _ in
+            tapCount += 1
+        }
         // .onReceive([self.isLoading].publisher.first(), perform: { value in
         //     print("isLoading changed to \(value)")
         // })
         .onAppear {
-            setUpNotificationObserver()
+            //            setUpNotificationObserver()
         }
-        
     }
+    
+    private func saveImageToFolder() {
+            if let image = UIImage(named: "rust-mascot"),
+               let imageData = image.pngData() { // or jpegData(compressionQuality:)
+                let fileName = UUID().uuidString + ".png" // Random file name
+                let fileURL = imageFolderMonitor.folderMonitor!.presentedItemURL!.appendingPathComponent(fileName)
+
+                do {
+                    try imageData.write(to: fileURL)
+                    print("Saved image to \(fileURL)")
+                } catch {
+                    print("Error saving image: \(error)")
+                }
+            }
+        }
     
     private func setUpNotificationObserver() {
         NotificationCenter.default.addObserver(
