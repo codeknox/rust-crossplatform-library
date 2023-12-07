@@ -7,10 +7,9 @@ pub mod greetings {
     use std::fs::File;
     use std::io::Write;
     use std::path::Path;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
-    use std::thread;
-    use std::time::Duration;
+    use tokio::time::{self, Duration};
     use tokio::runtime::Runtime;
     use uuid::Uuid;
 
@@ -23,6 +22,7 @@ pub mod greetings {
             let rt = Runtime::new().expect("Failed to create Tokio runtime");
             rt
         };
+        static ref FETCH_STATE: Arc<FetchState> = Arc::new(FetchState::new());
     }
 
     pub fn get_greetings() -> String {
@@ -47,17 +47,20 @@ pub mod greetings {
     // Shared state to control the image fetching loop
     struct FetchState {
         running: AtomicBool,
+        task_count: AtomicUsize,
     }
 
     impl FetchState {
         fn new() -> Self {
             FetchState {
                 running: AtomicBool::new(false),
+                task_count: AtomicUsize::new(0),
             }
         }
 
         fn start(&self) {
             self.running.store(true, Ordering::SeqCst);
+            self.task_count.fetch_add(1, Ordering::SeqCst);
         }
 
         fn stop(&self) {
@@ -67,11 +70,14 @@ pub mod greetings {
         fn is_running(&self) -> bool {
             self.running.load(Ordering::SeqCst)
         }
-    }
 
-    // Global shared state (uses Mutex for thread safety)
-    lazy_static::lazy_static! {
-        static ref FETCH_STATE: Arc<Mutex<FetchState>> = Arc::new(Mutex::new(FetchState::new()));
+        fn decrement_task_count(&self) {
+            self.task_count.fetch_sub(1, Ordering::SeqCst);
+        }
+
+        fn get_task_count(&self) -> usize {
+            self.task_count.load(Ordering::SeqCst)
+        }
     }
 
     // Starts the fetching of random images
@@ -80,33 +86,32 @@ pub mod greetings {
         let state = FETCH_STATE.clone();
         let folder_path = folder.to_owned();
 
-        // Create the Tokio runtime once outside the loop
-        let rt = Runtime::new().unwrap();
-
         // Start the fetching thread
-        thread::spawn(move || {
-            let state = state.lock().unwrap();
+        TOKIO_RUNTIME.spawn(async move {
             state.start();
+            println!("Rust: START: {}", state.get_task_count());
             while state.is_running() {
                 // Fetch and save an image using the single runtime instance
-                if let Err(e) = rt.block_on(fetch_and_save_image(IMAGE_URL, &folder_path)) {
+                if let Err(e) = fetch_and_save_image(IMAGE_URL, &folder_path).await {
                     eprintln!("Error fetching image: {}", e);
-                }
-                else {
+                } else {
                     let mut count = COUNTER1.lock().unwrap();
                     *count += 1;
                     println!("Rust: count: {}", count);
                 }
                 // Sleep for a short duration before fetching the next image
-                // thread::sleep(Duration::from_secs(5));
+                time::sleep(Duration::from_millis(50)).await;
             }
+            state.decrement_task_count();
+            println!("Rust: Task ended. Active tasks: {}", state.get_task_count());
         });
     }
 
     // Stops the fetching of random images
     pub fn stop_fetch_random_image() {
-        let state = FETCH_STATE.lock().unwrap();
-        state.stop();
+        println!("Rust: STOP");
+        FETCH_STATE.stop();
+        println!("Rust: state: {}", FETCH_STATE.is_running());
     }
 
     // Helper function to fetch and save the image

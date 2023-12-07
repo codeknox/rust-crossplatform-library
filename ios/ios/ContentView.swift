@@ -144,16 +144,21 @@ struct ContentView: View {
             Text(text2).padding()
             Text("Call Count: \(imageFolderMonitor.count)").padding(1)
             Text("Error Count: \(errorCount)").padding(1)
-            Button("Start Fetch Image from Rust") {
-                // fetchImageFromRust()
-                // saveImageToFolder()
-                if let folderURL = imageFolderMonitor.folderMonitor?.presentedItemURL {
-                    let folderPath = folderURL.path
-                    print(folderPath)
-                    start_fetch_random_image(folderPath)
+            Text("Rust Image fetching")
+            HStack {
+                Button("Start") {
+                    // fetchImageFromRust()
+                    // saveImageToFolder()
+                    if let folderURL = imageFolderMonitor.folderMonitor?.presentedItemURL {
+                        let folderPath = folderURL.path
+                        print(folderPath)
+                        start_fetch_random_image(folderPath)
+                    }
+                }.padding()
+                Button("Stop") {
+                    stop_fetch_random_image()
                 }
-            }.padding()
-            
+            }
             ZStack {
                 if let image = imageFolderMonitor.image {
                     Image(uiImage: image)
