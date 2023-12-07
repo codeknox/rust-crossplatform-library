@@ -13,7 +13,10 @@ import UIKit
 class FolderMonitor: NSObject, NSFilePresenter {
     var folderURL: URL
     var presentedItemOperationQueue: OperationQueue
-
+    private var lastProcessedFileURL: URL?
+    private var filesToDelete = Set<URL>()
+    var count = 0
+    
     var onNewImageDetected: ((UIImage) -> Void)?
     
     init(folder: String, onNewImageDetected: @escaping (UIImage) -> Void) {
@@ -23,7 +26,7 @@ class FolderMonitor: NSObject, NSFilePresenter {
         super.init()
         NSFileCoordinator.addFilePresenter(self)
     }
-
+    
     var presentedItemURL: URL? {
         return folderURL
     }
@@ -32,30 +35,41 @@ class FolderMonitor: NSObject, NSFilePresenter {
         do {
             let fileURLs = try FileManager.default.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: [.contentModificationDateKey], options: .skipsHiddenFiles)
             
-            // Filter for image files, if required. This can be adjusted based on your specific needs
-            let imageFiles = fileURLs.filter { $0.pathExtension == "png" || $0.pathExtension == "jpg" || $0.pathExtension == "jpeg" }
-            
-            // Sort the files by modification date, latest first
-            let sortedFiles = imageFiles.sorted {
+            let sortedFiles = fileURLs.sorted {
                 let date0 = try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
                 let date1 = try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
                 return date0 ?? Date.distantPast > date1 ?? Date.distantPast
             }
             
-            // Process only the latest file
-            if let latestFileURL = sortedFiles.first, isNewImage(latestFileURL) {
-                if let image = UIImage(contentsOfFile: latestFileURL.path) {
-                    onNewImageDetected?(image)
-                }
+            // Process only the latest file if it's not the same as the last processed one
+            if let latestFileURL = sortedFiles.first, latestFileURL != lastProcessedFileURL {
+                processLatestImageFile(latestFileURL)
+                lastProcessedFileURL = latestFileURL
             }
-            for fileURL in sortedFiles.dropFirst() {
-                try FileManager.default.removeItem(at: fileURL)
-            }
+            
+            // Mark all but the latest file for deletion
+            filesToDelete.formUnion(fileURLs.filter { $0 != lastProcessedFileURL })
+            deleteMarkedFiles()
         } catch {
             print("Error reading directory contents: \(error)")
         }
     }
-
+    
+    private func processLatestImageFile(_ fileURL: URL) {
+        if isNewImage(fileURL), let image = UIImage(contentsOfFile: fileURL.path) {
+            count += 1
+            print("newImage calls: \(count)")
+            onNewImageDetected?(image)
+        }
+    }
+    
+    private func deleteMarkedFiles() {
+        for fileURL in filesToDelete {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+        filesToDelete.removeAll()
+    }
+    
     private func isNewImage(_ fileURL: URL) -> Bool {
         // Implement logic to determine if the file is a new image
         return true
@@ -81,32 +95,34 @@ class FolderMonitor: NSObject, NSFilePresenter {
 
 // Global function for posting notification
 func postImageFetchNotification(dataPtr: UnsafePointer<UInt8>?, length: UInt) {
-  print("Swift: Posting Image Fetch Notification \(length)")
-  guard let dataPtr = dataPtr else {
-    print("Swift: postImageFetchNotification: invalid data, posting")
+    print("Swift: Posting Image Fetch Notification \(length)")
+    guard let dataPtr = dataPtr else {
+        print("Swift: postImageFetchNotification: invalid data, posting")
+        NotificationCenter.default.post(
+            name: .ImageFetchCompleted, object: nil, userInfo: ["data": Data()])
+        print("Swift: postImageFetchNotification: invalid data, posted, returning")
+        return
+    }
+    
+    print("Swift: postImageFetchNotification: data is valid")
+    let data = Data(bytes: dataPtr, count: Int(length))
     NotificationCenter.default.post(
-      name: .ImageFetchCompleted, object: nil, userInfo: ["data": Data()])
-    print("Swift: postImageFetchNotification: invalid data, posted, returning")
-    return
-  }
-
-  print("Swift: postImageFetchNotification: data is valid")
-  let data = Data(bytes: dataPtr, count: Int(length))
-  NotificationCenter.default.post(
-    name: .ImageFetchCompleted, object: nil, userInfo: ["data": data])
+        name: .ImageFetchCompleted, object: nil, userInfo: ["data": data])
 }
 
 class ImageFolderMonitor: ObservableObject {
-   @Published var image: UIImage?
-   public var folderMonitor: FolderMonitor?
-
-   init(folder: String) {
-      folderMonitor = FolderMonitor(folder: folder) { [weak self] newImage in
-         DispatchQueue.main.async {
-            self?.image = newImage
-         }
-      }
-   }
+    @Published var image: UIImage?
+    @Published var count = 0
+    public var folderMonitor: FolderMonitor?
+    
+    init(folder: String) {
+        folderMonitor = FolderMonitor(folder: folder) { [weak self] newImage in
+            DispatchQueue.main.async {
+                self?.count += 1
+                self?.image = newImage
+            }
+        }
+    }
 }
 
 
@@ -118,7 +134,7 @@ struct ContentView: View {
     @State private var rustImage = UIImage(named: "rust-mascot")
     @State private var isLoading = false  // State to track loading status
     @StateObject private var imageFolderMonitor = ImageFolderMonitor(folder: "images")
-
+    
     var body: some View {
         VStack {
             Text(text1).padding()
@@ -126,11 +142,16 @@ struct ContentView: View {
                     handleOnTap()
                 }
             Text(text2).padding()
-            Text("Call Count: \(tapCount)").padding(1)
+            Text("Call Count: \(imageFolderMonitor.count)").padding(1)
             Text("Error Count: \(errorCount)").padding(1)
             Button("Start Fetch Image from Rust") {
-//                fetchImageFromRust()
-                saveImageToFolder()
+                // fetchImageFromRust()
+                // saveImageToFolder()
+                if let folderURL = imageFolderMonitor.folderMonitor?.presentedItemURL {
+                    let folderPath = folderURL.path
+                    print(folderPath)
+                    start_fetch_random_image(folderPath)
+                }
             }.padding()
             
             ZStack {
@@ -144,9 +165,9 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: imageFolderMonitor.image) { _ in
-            tapCount += 1
-        }
+        //        .onChange(of: imageFolderMonitor.image) { _ in
+        //            tapCount += 1
+        //        }
         // .onReceive([self.isLoading].publisher.first(), perform: { value in
         //     print("isLoading changed to \(value)")
         // })
@@ -156,19 +177,19 @@ struct ContentView: View {
     }
     
     private func saveImageToFolder() {
-            if let image = UIImage(named: "rust-mascot"),
-               let imageData = image.pngData() { // or jpegData(compressionQuality:)
-                let fileName = UUID().uuidString + ".png" // Random file name
-                let fileURL = imageFolderMonitor.folderMonitor!.presentedItemURL!.appendingPathComponent(fileName)
-
-                do {
-                    try imageData.write(to: fileURL)
-                    print("Saved image to \(fileURL)")
-                } catch {
-                    print("Error saving image: \(error)")
-                }
+        if let image = UIImage(named: "rust-mascot"),
+           let imageData = image.pngData() { // or jpegData(compressionQuality:)
+            let fileName = UUID().uuidString + ".png" // Random file name
+            let fileURL = imageFolderMonitor.folderMonitor!.presentedItemURL!.appendingPathComponent(fileName)
+            
+            do {
+                try imageData.write(to: fileURL)
+                print("Saved image to \(fileURL)")
+            } catch {
+                print("Error saving image: \(error)")
             }
         }
+    }
     
     private func setUpNotificationObserver() {
         NotificationCenter.default.addObserver(
@@ -264,26 +285,26 @@ struct ContentView: View {
 }
 
 extension Notification.Name {
-  static let ImageFetchCompleted = Notification.Name("ImageFetchCompleted")
+    static let ImageFetchCompleted = Notification.Name("ImageFetchCompleted")
 }
 
 extension DispatchQueue {
-
-  static func background(
-    delay: Double = 0.0, background: (() -> Void)? = nil, completion: (() -> Void)? = nil
-  ) {
-    DispatchQueue.global(qos: .background).async {
-      background?()
-      if let completion = completion {
-        DispatchQueue.main.asyncAfter(
-          deadline: .now() + delay,
-          execute: {
-            completion()
-          })
-      }
+    
+    static func background(
+        delay: Double = 0.0, background: (() -> Void)? = nil, completion: (() -> Void)? = nil
+    ) {
+        DispatchQueue.global(qos: .background).async {
+            background?()
+            if let completion = completion {
+                DispatchQueue.main.asyncAfter(
+                    deadline: .now() + delay,
+                    execute: {
+                        completion()
+                    })
+            }
+        }
     }
-  }
-
+    
 }
 
 //class ImageFetcher {
@@ -306,7 +327,7 @@ extension DispatchQueue {
 //}
 
 struct ContentView_Previews: PreviewProvider {
-  static var previews: some View {
-    ContentView()
-  }
+    static var previews: some View {
+        ContentView()
+    }
 }
