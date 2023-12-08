@@ -6,13 +6,13 @@ pub mod greetings {
     use rand::Rng;
     use reqwest;
     use std::fs;
-    use std::fs::File;
-    use std::io::Write;
     use std::panic::{self, AssertUnwindSafe};
     use std::path::Path;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread;
+    use tokio::fs::File;
+    use tokio::io::AsyncWriteExt;
     use tokio::runtime::Runtime;
     use tokio::time::Duration;
     use uuid::Uuid;
@@ -135,12 +135,12 @@ pub mod greetings {
 
         // Start the fetching thread with panic recovery
         fn start_fetching(state: Arc<FetchState>, folder_path: String) {
-            thread::spawn(move || {
+            TOKIO_RUNTIME.spawn(async move {
                 state.start();
-                let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                // let result = panic::catch_unwind(AssertUnwindSafe(|| {
                     // println!("Rust: START: {}", state.get_task_count());
                     while state.is_running() {
-                        match fetch_and_save_image(IMAGE_URL, &folder_path) {
+                        match fetch_and_save_image(IMAGE_URL, &folder_path).await {
                             Ok(_) => {
                                 let mut count = COUNTER1.lock().unwrap();
                                 *count += 1;
@@ -153,19 +153,19 @@ pub mod greetings {
                         // Sleep for a short duration before fetching the next image
                         // thread::sleep(Duration::from_millis(50));
                     }
-                }));
+                // }));
                 state.decrement_task_count();
 
-                if let Err(panic) = result {
-                    eprintln!("Rust: Panic caught in image fetching thread: {:?}", panic);
-                    println!("Rust: Active tasks: {}", state.get_task_count());
-                    if state.is_running() {
-                        // Restart the fetching process
-                        start_fetching(state.clone(), folder_path.clone());
-                    }
-                } else {
-                    println!("Rust: Task ended. Active tasks: {}", state.get_task_count());
-                }
+                // if let Err(panic) = result {
+                //     eprintln!("Rust: Panic caught in image fetching thread: {:?}", panic);
+                //     println!("Rust: Active tasks: {}", state.get_task_count());
+                //     if state.is_running() {
+                //         // Restart the fetching process
+                //         start_fetching(state.clone(), folder_path.clone());
+                //     }
+                // } else {
+                //     println!("Rust: Task ended. Active tasks: {}", state.get_task_count());
+                // }
             });
         }
 
@@ -181,7 +181,10 @@ pub mod greetings {
     }
 
     // Helper function to fetch and save the image
-    fn fetch_and_save_image(url: &str, folder: &str) -> Result<(), Box<dyn std::error::Error>> {
+    async fn fetch_and_save_image(
+        url: &str,
+        folder: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // let mut rng = rand::thread_rng();
         // if rng.gen_bool(0.3) {
         //     eprintln!("Simulated error in fetching image");
@@ -194,15 +197,15 @@ pub mod greetings {
         //     panic!("Simulated panic");
         // }
 
-        let response = reqwest::blocking::get(url)?;
-        let bytes = response.bytes()?;
+        let response = reqwest::get(url).await?;
+        let bytes = response.bytes().await?;
 
         // Generate a random UUID for the filename
         let filename = format!("{}.jpg", Uuid::new_v4());
         let file_path = Path::new(folder).join(filename);
 
-        let mut file = File::create(file_path)?;
-        file.write_all(&bytes)?;
+        let mut file = File::create(file_path).await?;
+        file.write_all(&bytes).await?;
         FETCH_STATE.increment_image_count();
         Ok(())
     }
