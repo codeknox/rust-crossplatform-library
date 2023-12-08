@@ -12,21 +12,18 @@ class ImageFetcher {
     private var isRunning = false
     private let imageURL = URL(string: "https://picsum.photos/200/300")!
     private var folderPath: URL?
-    private let fetchQueue = DispatchQueue(label: "imageFetchQueue", attributes: .concurrent)
-    private var timer: Timer?
     private var imageCount = 0
+    private var timer: Timer?
     
     func startFetching(_ folder: URL) {
         guard !isRunning else { return }
         isRunning = true
-        folderPath = folder;
+        folderPath = folder
         resetBenchmarking()
         
-        fetchQueue.async {
+        Task {
             while self.isRunning {
-                self.fetchAndSaveImage()
-                // Optionally add a short sleep to prevent overwhelming the server
-                Thread.sleep(forTimeInterval: 0.05)
+                await fetchAndSaveImage()
             }
         }
     }
@@ -35,27 +32,21 @@ class ImageFetcher {
         isRunning = false
     }
     
-    private func fetchAndSaveImage() {
-        URLSession.shared.dataTask(with: imageURL) { data, response, error in
-            guard let data = data, error == nil else {
-                print("Error fetching image: \(String(describing: error))")
-                return
-            }
-            
+    private func fetchAndSaveImage() async {
+        do {
+            let (data, _) = try await URLSession.shared.data(from: imageURL)
             let filename = UUID().uuidString + ".jpg"
-            let filePath = self.folderPath!.appendingPathComponent(filename)
-            
-            do {
-                try data.write(to: filePath)
-                self.imageCount += 1
-            } catch {
-                print("Error saving image: \(error)")
-            }
-        }.resume()
+            let filePath = folderPath!.appendingPathComponent(filename)
+            try data.write(to: filePath)
+            imageCount += 1
+        } catch {
+            print("Error during fetch/save: \(error)")
+        }
     }
     
     private func resetBenchmarking() {
         imageCount = 0
+        
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: false) { _ in
             print("Benchmark result: \(self.imageCount) images downloaded in 1 minute.")
             self.stopFetching()

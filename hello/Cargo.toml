@@ -9,6 +9,7 @@ edition = "2021"
 uuid = { version = "0.8", features = ["v4"] }
 rand = "0.8.4"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.11", features = ["blocking", "json"] }
+hyper = { version = "0.14", features = ["client", "http1", "tcp"] }
+hyper-tls = "0.5"
 num-format = "0.4"
 lazy_static = "1.4"

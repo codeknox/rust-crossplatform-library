@@ -119,6 +119,7 @@ struct ContentView: View {
     @StateObject private var imageFolderMonitor = ImageFolderMonitor(folder: "images")
     private var imageFetcher = ImageFetcher()
     @State private var isFetching = false
+    private let runRust = false
     
     var body: some View {
         VStack {
@@ -128,16 +129,21 @@ struct ContentView: View {
             Text("Rust Image fetching").padding()
             Button(isFetching ? "Stop Fetching" : "Start Fetching") {
                 if isFetching {
-                    stop_fetch_random_image()
-                    //                    imageFetcher.stopFetching()
+                    if (runRust) {
+                        stop_fetch_random_image()
+                    } else {
+                        imageFetcher.stopFetching()
+                    }
                 } else {
                     // fetchImageFromRust()
                     if let folderURL = imageFolderMonitor.folderMonitor?.presentedItemURL {
                         let folderPath = folderURL.path
                         print(folderPath)
-                        
-                        start_fetch_random_image(folderPath)
-                        //                        imageFetcher.startFetching(folderURL)
+                        if (runRust) {
+                            start_fetch_random_image(folderPath)
+                        } else {
+                            imageFetcher.startFetching(folderURL)
+                        }
                     }
                 }
                 isFetching.toggle()

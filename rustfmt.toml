@@ -1,0 +1,6 @@
+max_width = 199
+tab_spaces = 3
+trailing_comma = "Vertical"
+reorder_imports = true
+fn_call_width = 199
+struct_field_align_threshold = 20
