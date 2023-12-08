@@ -20,32 +20,11 @@ pub mod greetings {
     static IMAGE_URL: &str = "https://picsum.photos/200/300"; // https://rustacean.net/assets/rustacean-orig-noshadow.png
 
     lazy_static! {
-        static ref COUNTER1: Mutex<u32> = Mutex::new(0);
-        static ref COUNTER2: Mutex<u32> = Mutex::new(0);
         static ref TOKIO_RUNTIME: Runtime = {
             let rt = Runtime::new().expect("Failed to create Tokio runtime");
             rt
         };
         static ref FETCH_STATE: Arc<FetchState> = Arc::new(FetchState::new());
-    }
-
-    pub fn get_greetings() -> String {
-        let mut count = COUNTER1.lock().unwrap();
-        *count += 1;
-        format!(
-            "Hello from Rust!\n{}x",
-            count.to_formatted_string(&Locale::en)
-        )
-    }
-
-    pub fn say_hello(recipient: &str) -> String {
-        let mut count = COUNTER2.lock().unwrap();
-        *count += 1;
-        format!(
-            "Hello, {}!\n{}x",
-            recipient,
-            count.to_formatted_string(&Locale::en)
-        )
     }
 
     // Shared state to control the image fetching loop
@@ -138,21 +117,17 @@ pub mod greetings {
             TOKIO_RUNTIME.spawn(async move {
                 state.start();
                 // let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                    // println!("Rust: START: {}", state.get_task_count());
-                    while state.is_running() {
-                        match fetch_and_save_image(IMAGE_URL, &folder_path).await {
-                            Ok(_) => {
-                                let mut count = COUNTER1.lock().unwrap();
-                                *count += 1;
-                                // println!("Rust: count: {}", count);
-                            }
-                            Err(e) => {
-                                eprintln!("Error fetching image: {}", e);
-                            }
+                // println!("Rust: START: {}", state.get_task_count());
+                while state.is_running() {
+                    match fetch_and_save_image(IMAGE_URL, &folder_path).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error fetching image: {}", e);
                         }
-                        // Sleep for a short duration before fetching the next image
-                        // thread::sleep(Duration::from_millis(50));
                     }
+                    // Sleep for a short duration before fetching the next image
+                    // thread::sleep(Duration::from_millis(50));
+                }
                 // }));
                 state.decrement_task_count();
 
@@ -208,55 +183,5 @@ pub mod greetings {
         file.write_all(&bytes).await?;
         FETCH_STATE.increment_image_count();
         Ok(())
-    }
-
-    // Function to fetch a random image and return its bytes
-    pub fn fetch_random_image() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        let result = TOKIO_RUNTIME.block_on(fetch_random_image_async_impl());
-        result
-    }
-
-    pub fn fetch_random_image_async<F>(callback: F)
-    where
-        F: FnOnce(Result<Vec<u8>, String>) + Send + 'static,
-    {
-        println!("Rust: started fetch_random_image_async with tokio...");
-        TOKIO_RUNTIME.spawn(async move {
-            println!("Rust: Starting image fetch with tokio...");
-            let result = fetch_random_image_async_impl().await;
-            println!("Rust: Image fetch completed with tokio, going into callback.");
-            callback(result.map_err(|e| {
-                println!("Rust: Error occurred: {}", e);
-                e.to_string()
-            }));
-            println!("Rust: Image fetch completed with tokio, callback returned.");
-        });
-    }
-
-    async fn fetch_random_image_async_impl() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        println!("Rust: fetch_random_image_async_impl: starting...");
-        // Create a client with default settings (including follow redirects)
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::default())
-            .build()?;
-
-        let res = client.get(IMAGE_URL).send().await?;
-        println!("HTTP Status: {}", res.status());
-        println!("Response Headers: {:?}", res.headers());
-
-        if res.status().is_success() {
-            println!("Rust: fetch_random_image_async_impl: bytes...");
-            let bytes = res.bytes().await?.to_vec();
-            println!(
-                "Rust: fetch_random_image_async_impl: returning OK, with length {}",
-                bytes.len()
-            );
-            Ok(bytes)
-        } else {
-            println!("Rust: HTTP error: {}", res.status());
-            Err(Box::new(
-                std::io::Error::new(std::io::ErrorKind::Other, "HTTP request failed")
-            ))
-        }
     }
 }
