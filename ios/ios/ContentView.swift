@@ -129,12 +129,14 @@ class ImageFolderMonitor: ObservableObject {
 struct ContentView: View {
     @State private var text1 = "Tap to start calling\n(it will call into rust 2x * 50,000,000)"
     @State private var text2 = ""
-    @State private var tapCount = 0  // Add a state property for the tap count
+    @State private var tapCount = 0
     @State private var errorCount = 0
     @State private var rustImage = UIImage(named: "rust-mascot")
-    @State private var isLoading = false  // State to track loading status
+    @State private var isLoading = false
     @StateObject private var imageFolderMonitor = ImageFolderMonitor(folder: "images")
-    
+    private var imageFetcher = ImageFetcher()
+    @State private var isFetching = false
+
     var body: some View {
         VStack {
             Text(text1).padding()
@@ -144,20 +146,23 @@ struct ContentView: View {
             Text(text2).padding()
             Text("Call Count: \(imageFolderMonitor.count)").padding(1)
             Text("Error Count: \(errorCount)").padding(1)
-            Text("Rust Image fetching")
-            HStack {
-                Button("Start") {
+            Text("Rust Image fetching").padding()
+            Button(isFetching ? "Stop Fetching" : "Start Fetching") {
+                if isFetching {
+                    stop_fetch_random_image()
+//                    imageFetcher.stopFetching()
+                } else {
                     // fetchImageFromRust()
                     // saveImageToFolder()
                     if let folderURL = imageFolderMonitor.folderMonitor?.presentedItemURL {
                         let folderPath = folderURL.path
                         print(folderPath)
+                        
                         start_fetch_random_image(folderPath)
+//                        imageFetcher.startFetching(folderURL)
                     }
-                }.padding()
-                Button("Stop") {
-                    stop_fetch_random_image()
                 }
+                isFetching.toggle()
             }
             ZStack {
                 if let image = imageFolderMonitor.image {

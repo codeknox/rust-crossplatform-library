@@ -15,6 +15,7 @@
 		43B853EE278B207800A2058C /* iosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B853ED278B207800A2058C /* iosUITests.swift */; };
 		470AC2C62B083B0500E8E08F /* LibHello.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 470AC2C52B083B0500E8E08F /* LibHello.xcframework */; };
 		470AC2C72B083B0500E8E08F /* LibHello.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 470AC2C52B083B0500E8E08F /* LibHello.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		4771C0102B228EF0002B63A6 /* ImageFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4771C00F2B228EF0002B63A6 /* ImageFetcher.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,6 +64,7 @@
 		43B853EF278B207800A2058C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		43B853FF278B25E300A2058C /* libhelloios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libhelloios.a; path = libs/libhelloios.a; sourceTree = "<group>"; };
 		470AC2C52B083B0500E8E08F /* LibHello.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = LibHello.xcframework; path = libs/LibHello.xcframework; sourceTree = "<group>"; };
+		4771C00F2B228EF0002B63A6 /* ImageFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageFetcher.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,6 +122,7 @@
 				43B853D4278B207800A2058C /* Assets.xcassets */,
 				43B853D9278B207800A2058C /* Info.plist */,
 				43B853D6278B207800A2058C /* Preview Content */,
+				4771C00F2B228EF0002B63A6 /* ImageFetcher.swift */,
 			);
 			path = ios;
 			sourceTree = "<group>";
@@ -290,6 +293,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4771C0102B228EF0002B63A6 /* ImageFetcher.swift in Sources */,
 				43B853D3278B207600A2058C /* ContentView.swift in Sources */,
 				43B853D1278B207600A2058C /* iosApp.swift in Sources */,
 			);
