@@ -6,10 +6,11 @@ pub mod greetings {
    use hyper::{Body, Client, StatusCode, Uri};
    use hyper_tls::HttpsConnector;
    use lazy_static::lazy_static;
+   use num_format::{Locale, ToFormattedString};
    use std::fs;
    use std::path::Path;
    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-   use std::sync::Arc;
+   use std::sync::{Arc, Mutex};
    use std::thread;
    use tokio::runtime::{Builder, Runtime};
    use tokio::time::Duration;
@@ -198,4 +199,29 @@ pub mod greetings {
 
       Ok(())
    }
+
+
+   lazy_static! {
+      static ref COUNTER1: Mutex<u32> = Mutex::new(0);
+      static ref COUNTER2: Mutex<u32> = Mutex::new(0);
+  }
+
+  pub fn get_greetings() -> String {
+      let mut count = COUNTER1.lock().unwrap();
+      *count += 1;
+      format!(
+          "Hello from Rust!\n{}x",
+          count.to_formatted_string(&Locale::en)
+      )
+  }
+
+  pub fn say_hello(recipient: &str) -> String {
+      let mut count = COUNTER2.lock().unwrap();
+      *count += 1;
+      format!(
+          "Hello, {}!\n{}x",
+          recipient,
+          count.to_formatted_string(&Locale::en)
+      )
+  }
 }

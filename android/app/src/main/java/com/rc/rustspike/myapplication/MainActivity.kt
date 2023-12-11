@@ -1,3 +1,4 @@
+// android/app/src/main/java/com/rc/rustspike/myapplication/MainActivity.kt
 package com.rc.rustspike.myapplication
 
 import androidx.appcompat.app.AppCompatActivity
